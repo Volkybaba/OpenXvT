@@ -7,6 +7,7 @@
 #include "xvt_runtime/runtime/dialog_task.h"
 #include "xvt_runtime/runtime/flight_task.h"
 #include "xvt_runtime/runtime/port.h"
+#include "xvt/frontend/frontend_display.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +48,14 @@ static void XvtControllerMapping_QueueKey(uint16_t key) {
 }
 
 static void XvtControllerMapping_DispatchAction(XvtInputAction action, bool pressed) {
+	/* volkyxvt v47: Fn screenshot everywhere. Outside flight the mapping
+	   drops every action, so intercept the screenshot action here and flag
+	   it for the frontend / movie frame to capture. In flight the normal
+	   path below queues FLIGHT_KEY_SCREENSHOT. */
+	if (action == XVT_INPUT_ACTION_SCREENSHOT && pressed && !XvtFlightTask_IsActive()) {
+		FrontendScreenshot_Request();
+		return;
+	}
 	if (!XvtFlightTask_IsActive() || XvtFlightTask_IsLoading())
 		return;
 	if (action == XVT_INPUT_ACTION_FIRE_WEAPON || action == XVT_INPUT_ACTION_TARGET_ROLL_MODIFIER)
@@ -321,6 +330,43 @@ static void SampleAnalog(size_t index, const AeronControllerSnapshot* device) {
 	}
 }
 
+/* VolkyXWColl v6: Fn screenshot everywhere. SampleDigital is skipped while
+   the settings menu captures input, and it produces no SCREENSHOT action at
+   all when the user's config has no screenshot binding. Cover both gaps by
+   watching the guide button directly; skip when the normal path handles it
+   so the same press is never dispatched twice (two BMPs). */
+static void XvtControllerMapping_GuideScreenshotFallback(const AeronInputSnapshot* input) {
+	static uint32_t prev_guide = 0;
+	uint32_t guide = 0;
+	for (int i = 0; i < AERON_CONTROLLER_MAX; ++i) {
+		const AeronControllerSnapshot* d = &input->controllers[i];
+		if (d->connected && (d->gamepad_buttons & (1u << AERON_GAMEPAD_BUTTON_GUIDE)))
+			guide |= 1u << i;
+	}
+	uint32_t rising = guide & ~prev_guide;
+	prev_guide = guide;
+	if (!rising)
+		return;
+	/* (a) input captured (settings menu open) -> SampleDigital skipped. */
+	bool need = g_controller.suspended;
+	/* (b) no profile binds SCREENSHOT -> SampleDigital never produces it. */
+	if (!need) {
+		bool bound = false;
+		for (size_t m = 0; m < g_controller.options.count && !bound; ++m) {
+			const XvtControllerProfile* p = &g_controller.options.models[m].profile;
+			for (size_t b = 0; b < p->binding_count; ++b)
+				if (p->bindings[b].action == XVT_INPUT_ACTION_SCREENSHOT) {
+					bound = true;
+					break;
+				}
+		}
+		need = !bound;
+	}
+	if (!need)
+		return;
+	XvtControllerMapping_DispatchAction(XVT_INPUT_ACTION_SCREENSHOT, true);
+}
+
 void XvtControllerMapping_Update(const AeronInputSnapshot* input) {
 	if (!input || input->frame_id == g_controller.frame)
 		return;
@@ -329,6 +375,7 @@ void XvtControllerMapping_Update(const AeronInputSnapshot* input) {
 		XvtControllerMapping_Suspend();
 	else
 		XvtControllerMapping_Resume();
+	XvtControllerMapping_GuideScreenshotFallback(input);
 	g_controller.present = false;
 	g_controller.throttle_valid = false;
 	memset(g_controller.axes, 0, sizeof g_controller.axes);

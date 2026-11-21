@@ -1,6 +1,8 @@
 #include "xvt/assets/string_table.h"
 #include "xvt/assets/file.h"
 
+#include "aeron/log.h"
+
 #include "xvt/assets/opt_model.h"
 #include "xvt/flight/fediskio.h"
 #include "xvt/flight/hud/hud.h"
@@ -71,8 +73,8 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 
 					length = StringTable_ReadNonCommentLine(stream, line);
 					if (length == -1) {
-						writePtr = NULL;
-						break;
+						length = 3;
+						memcpy(line, "---", 4);
 					}
 					memcpy(writePtr, line, (size_t)length + 1);
 					g_strDamageSystemNames[entryIndex] = writePtr;
@@ -84,8 +86,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < FILE_ERROR_STRING_COUNT) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -112,8 +113,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex < (int)(sizeof(g_provingGroundsStatusLabels) /
 										  sizeof(g_provingGroundsStatusLabels[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -134,8 +134,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < 1) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -158,8 +157,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 					variantIndex = 0;
 					while (variantIndex < g_goalConditionTextVariantCount[conditionVariantIndex]) {
 						if (File_Gets(line, sizeof(line), stream) == NULL) {
-							writePtr = NULL;
-							break;
+							strcpy(line, "---");
 						}
 						line[sizeof(line) - 1] = '\0';
 						if (line[0] == '/' && line[1] == '/') {
@@ -184,8 +182,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strGoalPercentages) / sizeof(g_strGoalPercentages[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -206,8 +203,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strGoalOperators) / sizeof(g_strGoalOperators[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -228,8 +224,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strGoalTitles) / sizeof(g_strGoalTitles[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -250,8 +245,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strGoalConjunctions) / sizeof(g_strGoalConjunctions[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -272,8 +266,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strGoalSides) / sizeof(g_strGoalSides[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -295,8 +288,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strGoalFamilyNames0To6) / sizeof(g_strGoalFamilyNames0To6[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -318,8 +310,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strGoalFamilyNames7To22) / sizeof(g_strGoalFamilyNames7To22[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -340,8 +331,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strMapRoomText) / sizeof(g_strMapRoomText[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -365,8 +355,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 					char* readPtr;
 
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -403,8 +392,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strCmdThreatDisplayText) / sizeof(g_strCmdThreatDisplayText[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -425,8 +413,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strWaypointNames) / sizeof(g_strWaypointNames[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -448,8 +435,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strMeshComponentNames) / sizeof(g_strMeshComponentNames[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -471,8 +457,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strCockpitOverlayText) / sizeof(g_strCockpitOverlayText[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -494,8 +479,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strThreatDisplayText) / sizeof(g_strThreatDisplayText[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -516,8 +500,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strStatusStrings) / sizeof(g_strStatusStrings[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -538,8 +521,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strWarheadNames) / sizeof(g_strWarheadNames[0])) + 1) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -565,8 +547,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strBuoyNames) / sizeof(g_strBuoyNames[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -587,8 +568,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				for (entryIndex = 0; entryIndex < MODEL_STRING_COUNT;) {
 					modelName = &g_modelDefs[entryIndex].nameLong;
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -597,6 +577,12 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 					lineLength = (int)strlen(line);
 					if (line[lineLength - 1] == '\n') {
 						line[--lineLength] = '\0';
+					}
+					if (line[0] != 'm' && line[0] != 'f' && line[0] != 'n') {
+						/* Short strings.txt: model list ran into the plural
+						 * section (or EOF placeholder). Default to neutered. */
+						strcpy(line, "n:---");
+						lineLength = 5;
 					}
 					*modelName = writePtr;
 					if (line[0] == 'm') {
@@ -619,8 +605,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				while (entryIndex <
 					   (int)(sizeof(g_strSpeciesNamesPlural) / sizeof(g_strSpeciesNamesPlural[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -641,8 +626,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 				entryIndex = 0;
 				while (entryIndex < (int)(sizeof(g_strWingmanCommands) / sizeof(g_strWingmanCommands[0]))) {
 					if (File_Gets(line, sizeof(line), stream) == NULL) {
-						writePtr = NULL;
-						break;
+						strcpy(line, "---");
 					}
 					line[sizeof(line) - 1] = '\0';
 					if (line[0] == '/' && line[1] == '/') {
@@ -675,8 +659,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 						variantIndex = 0;
 						while (variantIndex < g_goalConditionTextVariantCount[conditionVariantIndex]) {
 							if (File_Gets(line, sizeof(line), stream) == NULL) {
-								writePtr = NULL;
-								break;
+								strcpy(line, "---");
 							}
 							line[sizeof(line) - 1] = '\0';
 							if (line[0] == '/' && line[1] == '/') {
@@ -714,8 +697,7 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 						variantIndex = 0;
 						while (variantIndex < g_goalConditionTextVariantCount[conditionVariantIndex]) {
 							if (File_Gets(line, sizeof(line), stream) == NULL) {
-								writePtr = NULL;
-								break;
+								strcpy(line, "---");
 							}
 							line[sizeof(line) - 1] = '\0';
 							if (line[0] == '/' && line[1] == '/') {
@@ -738,12 +720,17 @@ void StringTable_LoadGameStrings(int loadFromDisk) {
 			}
 
 			if (writePtr != NULL) {
+				Aeron_LogError("xvt.files", "DIAG3 strings.txt loaded OK fileSize=%u",
+						(unsigned)fileSize);
 				File_RawClose(stream);
 				return;
 			}
 		}
 	}
 	File_RawClose(stream);
+	Aeron_LogError("xvt.files",
+			       "DIAG3 strings.txt OUT-OF-SYNC fileSize=%u writePtrNull=%d streamNull=%d",
+			       (unsigned)fileSize, writePtr == NULL, stream == NULL);
 	FeDiskIo_FatalError(FILE_ERROR_STR_STRINGS_OUT_OF_SYNC);
 }
 

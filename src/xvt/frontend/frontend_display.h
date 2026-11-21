@@ -70,6 +70,8 @@ uint32_t FrontendDisplay_InitPreservingNetworkSession(void* hInstance, void* hPr
 													  int (*modeInitFn)(void), int fps, int bpp);
 void FrontendDisplay_ResetGlobalStatePreservingNetworkSession(void);
 int FrontendDisplay_CaptureScreenshot(void);
+void FrontendScreenshot_Request(void);
+int FrontendScreenshot_TakeRequested(void);
 uint8_t* FrontendDisplay_LockSurfaceForFlight(void);
 int FrontendDisplay_RunFrame(void);
 void* FrontendDisplay_GetMainWindowHandle(void);

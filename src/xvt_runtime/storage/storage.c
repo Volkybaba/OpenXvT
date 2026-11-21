@@ -107,6 +107,13 @@ static AeronFile* XvtStorage_OpenAsset(const char* path, const char* mode, char*
 		resolved[0] = 0;
 	if (!XvtStorage_Normalize(path, normalized, sizeof(normalized)))
 		return NULL;
+#ifdef XVT_BASE_GAME
+	/* Base game: no expansion folder; the game-data root IS the install. */
+	if (strlen(normalized) >= capacity)
+		return NULL;
+	strcpy(resolved, normalized);
+	return XvtStorage_OpenRoot(AERON_VFS_ROOT_ASSET, resolved, mode);
+#else
 	int length = snprintf(resolved, capacity, "BalanceOfPower/%s", normalized);
 	if (length >= 0 && (size_t)length < capacity) {
 		file = XvtStorage_OpenRoot(AERON_VFS_ROOT_ASSET, resolved, mode);
@@ -117,6 +124,7 @@ static AeronFile* XvtStorage_OpenAsset(const char* path, const char* mode, char*
 		return NULL;
 	strcpy(resolved, normalized);
 	return XvtStorage_OpenRoot(AERON_VFS_ROOT_ASSET, resolved, mode);
+#endif
 }
 
 int XvtStorage_ResolveAsset(const char* path, char* resolved, size_t capacity) {
@@ -125,6 +133,9 @@ int XvtStorage_ResolveAsset(const char* path, char* resolved, size_t capacity) {
 		AeronVfs_Close(file);
 		return 1;
 	}
+#ifdef XVT_BASE_GAME
+	return XvtStorage_Probe(AERON_VFS_ROOT_ASSET, path) == 0 ? 0 : -1;
+#else
 	char expansion[XVT_PATH_CAPACITY];
 	int length = snprintf(expansion, sizeof(expansion), "BalanceOfPower/%s", path ? path : "");
 	if (length < 0 || (size_t)length >= sizeof(expansion))
@@ -133,6 +144,7 @@ int XvtStorage_ResolveAsset(const char* path, char* resolved, size_t capacity) {
 				   XvtStorage_Probe(AERON_VFS_ROOT_ASSET, path) == 0
 			   ? 0
 			   : -1;
+#endif
 }
 
 static int XvtStorage_Extension(const char* path, const char* extension) {
@@ -173,8 +185,14 @@ AeronFile* XvtStorage_OpenRoot(AeronVfsRoot root, const char* path, const char* 
 	g_lastRoot = root;
 	writable = mode[0] != 'r' || strchr(mode, '+') != NULL;
 	/* Windows fopen rejects directories; some host file APIs open them for reading. */
-	if (!writable && AeronVfs_Stat(g_vfs, root, g_lastPath, &info) && info.is_directory)
+	if (!writable && AeronVfs_Stat(g_vfs, root, g_lastPath, &info) && info.is_directory) {
+		if (strstr(g_lastPath, "strings.txt"))
+			Aeron_LogError("xvt.files",
+				       "DIAG2 strings.txt treated as DIRECTORY: path='%s' root=%d exists=%d is_dir=%d size=%lld",
+				       g_lastPath, (int)root, (int)info.exists, (int)info.is_directory,
+				       (long long)info.size);
 		return NULL;
+	}
 	if (writable && root != AERON_VFS_ROOT_USER && root != AERON_VFS_ROOT_TEMP)
 		return NULL;
 	open_mode = mode[0] == 'w'      ? (strchr(mode, '+') ? AERON_VFS_WRITE_READ : AERON_VFS_WRITE)

@@ -16,18 +16,39 @@ const char* XvtSetup_Installation(void) { return g_installation; }
 
 static AeronFile* XvtSetup_OpenAsset(AeronVfs* vfs, const char* path, char* resolved, size_t capacity) {
 	AeronFile* file = NULL;
+#ifdef XVT_BASE_GAME
+	/* Base game: files are directly under the game-data root (no expansion folder). */
+	snprintf(resolved, capacity, "%s", path);
+	AeronVfs_Open(vfs, AERON_VFS_ROOT_ASSET, resolved, AERON_VFS_READ, &file);
+	return file;
+#else
 	snprintf(resolved, capacity, "BalanceOfPower/%s", path);
 	if (AeronVfs_Open(vfs, AERON_VFS_ROOT_ASSET, resolved, AERON_VFS_READ, &file))
 		return file;
 	snprintf(resolved, capacity, "%s", path);
 	AeronVfs_Open(vfs, AERON_VFS_ROOT_ASSET, resolved, AERON_VFS_READ, &file);
 	return file;
+#endif
 }
 
 static int XvtSetup_ProbeInstallation(AeronVfs* vfs, const char* path, char* error, size_t capacity) {
+#ifdef XVT_BASE_GAME
+	static const char* exact[] = { "fronttxt.txt", "frontres/top.lst", "frontres/campawds.lst" };
+#else
 	static const char* exact[] = { "BalanceOfPower/fronttxt.txt", "BalanceOfPower/frontres/top.lst",
-								   "BalanceOfPower/frontres/campawds.lst", "sfx/sfx.lst" };
-	static const char* assets[] = { "ivfiles/cal.opt", "train/1ta01bf.tie", "wave/PBC/Pb1los07.wav" };
+								   "BalanceOfPower/frontres/campawds.lst" };
+#endif
+	/* volkyxvt v45: sfx/sfx.lst is in assets[] so XvtSetup_OpenAsset finds
+	   it under BalanceOfPower first (BalanceOfPower/sfx/sfx.lst), falling
+	   back to sfx/sfx.lst. The gamedata-root copy is no longer required. */
+#ifdef XVT_BASE_GAME
+	/* Base game: train/1ta01bf.tie and wave/PBC/Pb1los07.wav are BoP-only and
+	   do not exist in the base install; only the core files are probed. */
+	static const char* assets[] = { "ivfiles/cal.opt", "sfx/sfx.lst" };
+#else
+	static const char* assets[] = { "ivfiles/cal.opt", "train/1ta01bf.tie", "wave/PBC/Pb1los07.wav",
+								   "sfx/sfx.lst" };
+#endif
 	char resolved[XVT_PATH_CAPACITY];
 	if (!path || !path[0] || (path[0] != '/' && !(isalpha((unsigned char)path[0]) && path[1] == ':')) ||
 		!AeronVfs_SetRoot(vfs, AERON_VFS_ROOT_ASSET, path) ||

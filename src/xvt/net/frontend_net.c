@@ -135,11 +135,21 @@ int FrontendNet_DrawJoinGameList(int resetScroll) {
 			FrontImage_DrawSprite("key", rect.left - 6, rect.top + 1);
 		if (g_frontendNetSessionList[rowIndex].version != 101u) {
 			if (g_frontendNetSessionList[rowIndex].version == 0) {
-				sprintf(g_frontendScratchBuffer, "%s v. ???", g_frontendNetSessionList[rowIndex].gameName);
+				#ifdef XVT_XWCOLL
+				sprintf(g_frontendScratchBuffer, "%s VolkyXWColl 0.50", g_frontendNetSessionList[rowIndex].gameName);
+				#elif defined(XVT_BASE_GAME)
+				sprintf(g_frontendScratchBuffer, "%s VolkyXwTf 0.50", g_frontendNetSessionList[rowIndex].gameName);
+#else
+				sprintf(g_frontendScratchBuffer, "%s VolkyXvTbop 0.50", g_frontendNetSessionList[rowIndex].gameName);
+#endif
 			} else {
-				sprintf(g_frontendScratchBuffer, "%s v. %d.%d", g_frontendNetSessionList[rowIndex].gameName,
-						(g_frontendNetSessionList[rowIndex].version - 1) / 100 + 1,
-						(g_frontendNetSessionList[rowIndex].version - 1) % 100);
+				#ifdef XVT_XWCOLL
+				sprintf(g_frontendScratchBuffer, "%s VolkyXWColl 0.50", g_frontendNetSessionList[rowIndex].gameName);
+				#elif defined(XVT_BASE_GAME)
+				sprintf(g_frontendScratchBuffer, "%s VolkyXwTf 0.50", g_frontendNetSessionList[rowIndex].gameName);
+#else
+				sprintf(g_frontendScratchBuffer, "%s VolkyXvTbop 0.50", g_frontendNetSessionList[rowIndex].gameName);
+#endif
 			}
 			FrontendText_DrawAlignedInRect(12, g_frontendScratchBuffer, &rect, 0, 1, textColor);
 		} else {
@@ -406,8 +416,14 @@ int FrontendNet_JoinGameScreen(int firstFrame) {
 		if (g_frontendNetSelectedSessionIdx != -1) {
 			FrontendNet_UpdateAndDrawPanel(firstFrame);
 		}
-		FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-		sprintf(g_frontendScratchBuffer, "v. %d.%d", 2, 0);
+		FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+		#ifdef XVT_XWCOLL
+	sprintf(g_frontendScratchBuffer, "VolkyXWColl 0.50");
+		#elif defined(XVT_BASE_GAME)
+	sprintf(g_frontendScratchBuffer, "VolkyXwTf 0.50");
+#else
+	sprintf(g_frontendScratchBuffer, "VolkyXvTbop 0.50");
+#endif
 		FrontendText_DrawCentered(12, g_frontendScratchBuffer, &rect, 0xFFFF);
 		FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 		if (g_pilotData.name[0] != '\0') {
@@ -572,8 +588,14 @@ int FrontendNet_AccessAllianceNetworkScreen(int firstFrame) {
 		FrontendScreen_SetCallbacks(MissionSetup_Update, MissionSetup_Exit);
 	}
 
-	FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-	sprintf(g_frontendScratchBuffer, "v. %d.%d", 2, 0);
+	FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+	#ifdef XVT_XWCOLL
+	sprintf(g_frontendScratchBuffer, "VolkyXWColl 0.50");
+	#elif defined(XVT_BASE_GAME)
+	sprintf(g_frontendScratchBuffer, "VolkyXwTf 0.50");
+#else
+	sprintf(g_frontendScratchBuffer, "VolkyXvTbop 0.50");
+#endif
 	FrontendText_DrawCentered(12, g_frontendScratchBuffer, &rect, 0xFFFF);
 	FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 	if (g_pilotData.name[0] != '\0') {
@@ -1421,7 +1443,7 @@ int FrontendNet_HostGameScreen(int firstFrame) {
 		g_frontendQuickStartLaunchFlag = 0;
 		g_unusedFrontendConcourseHostLatch = 1;
 		g_frontendSinglePlayerFlightSessionActive = 0;
-		strcpy(g_pilotData.multiplayerGameName, g_pilotData.multiplayerHostName);
+		strcpy(g_pilotData.multiplayerHostName, g_pilotData.multiplayerGameName);
 		if (g_frontendChatLogBuffer != NULL) {
 			memset(g_frontendChatLogBuffer, 0, 1024);
 			g_frontendChatLogUsedBytes = 0;
@@ -1483,8 +1505,14 @@ int FrontendNet_HostGameScreen(int firstFrame) {
 			FrontendDisplay_DisableOffscreenRestore();
 		}
 
-		FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-		sprintf(g_frontendScratchBuffer, "v. %d.%d", 2, 0);
+		FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+		#ifdef XVT_XWCOLL
+	sprintf(g_frontendScratchBuffer, "VolkyXWColl 0.50");
+		#elif defined(XVT_BASE_GAME)
+	sprintf(g_frontendScratchBuffer, "VolkyXwTf 0.50");
+#else
+	sprintf(g_frontendScratchBuffer, "VolkyXvTbop 0.50");
+#endif
 		FrontendText_DrawCentered(12, g_frontendScratchBuffer, &rect, 0xFFFF);
 		FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 		if (g_pilotData.name[0] != '\0') {

@@ -192,8 +192,13 @@ int File_CheckGameCdPresent(int skipMovieChecks) {
 #ifdef XVT_MODERN
 	char path[XVT_PATH_CAPACITY];
 	(void)skipMovieChecks;
+#ifdef XVT_XWCOLL
+	/* X-Wing (Collector's Series): wave/PBC/Pb1los07.wav XvT'ye ozgu ses dosyasi, X-Wing verisinde yok; yalniz cal.opt aranir. */
+	return XvtStorage_ResolveAsset("ivfiles/cal.opt", path, sizeof(path)) == 1;
+#else
 	return XvtStorage_ResolveAsset("wave/PBC/Pb1los07.wav", path, sizeof(path)) == 1 &&
 		   XvtStorage_ResolveAsset("ivfiles/cal.opt", path, sizeof(path)) == 1;
+#endif
 #else
 
 	XvtFile* stream;
@@ -259,7 +264,11 @@ void File_DetectGameAndCdPaths(const char* requiredCdFilePath) {
 	(void)requiredCdFilePath;
 	g_frontState.cdDriveLetter = 0;
 	g_frontState.installDriveLetter = 0;
+#ifdef XVT_BASE_GAME
+	strcpy(g_frontState.installPath, "");
+#else
 	strcpy(g_frontState.installPath, "BalanceOfPower");
+#endif
 	g_frontState.baseGameInstallPath[0] = 0;
 #else
 

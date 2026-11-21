@@ -118,7 +118,7 @@ static int DrawStyledField(const XvtHudDraw* draw, const XvtCockpitTextField* fi
 		return 1;
 	unsigned tier = field->caption.font_tier;
 	if (tier >= XVT_HUD_FONT_TIERS)
-		return 0;
+		return 1; /* Garbage tier (old .INT): skip the field. */
 	const XvtCockpitFontBinding* font = &draw->state->definition.fonts[tier];
 	TextCursor cursor = { .font = XvtHudAssets_FindFont(font->asset_id),
 						  .phase = field->caption.phase,
@@ -129,7 +129,7 @@ static int DrawStyledField(const XvtHudDraw* draw, const XvtCockpitTextField* fi
 						  .keyed = field->keyed,
 						  .color_key = field->color_key_argb };
 	if (!cursor.font)
-		return 0;
+		return 1; /* Missing font (old .INT): skip the field. */
 	cursor.glyph = (XvtCockpitGlyph) {
 		.font_asset_id = font->asset_id,
 		.clip = field->bounds,
@@ -154,7 +154,7 @@ int XvtHudText_DrawNumber(const XvtHudDraw* draw, const XvtCockpitNumber* number
 	if (!number->visible)
 		return 1;
 	if (number->font_tier >= XVT_HUD_FONT_TIERS || number->field_width > 9)
-		return 0;
+		return 1; /* Garbage number layout (old .INT): skip the number. */
 	XvtCockpitTextField field = { 0 };
 	field.caption.visible = 1;
 	field.caption.font_tier = number->font_tier;

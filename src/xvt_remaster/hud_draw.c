@@ -119,6 +119,10 @@ void XvtHudDraw_Part(const XvtHudDraw* draw, XvtHudSpriteRole role, unsigned sta
 	const XvtHudSpriteBinding* binding = &draw->layout->sprites[role];
 	if (state >= binding->part_count)
 		return;
+	/* No prepared artwork (empty set): the binding indexes parts that were
+	 * never decoded. Skip the part instead of reading a wild atlas frame. */
+	if (!draw->assets || binding->first_part + state >= draw->assets->part_count)
+		return;
 	const XvtHudPreparedPart* part = &draw->assets->bindings[binding->first_part + state];
 	const AeronRuntimeAtlas* atlas = &draw->assets->parts;
 	float width = atlas->layout.classic_w[part->atlas_frame],

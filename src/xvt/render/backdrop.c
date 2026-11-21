@@ -58,11 +58,28 @@ void Backdrop_DrawModelTexQuadAtScreen(int modelType, int screenX, int screenY, 
 	g_flightSwRotSpriteSpanRunsEnabled = 1;
 	g_camRelWorldZ = 0x100000;
 	depthZ = 0x7FFFFFFF;
+	/* volkyxvt v44: a backdrop model's texture may be missing (unloaded
+	   .OPT / zero handle). A zero handle makes Memory_LockHandle read
+	   ptrTable[-1]; NULL data or a wild offset crashes the frame.
+	   Skip this backdrop quad instead. */
+	if (modelType < 0 || modelType >= 201)
+		return;
+	if (g_modelTypeTable[modelType].curTexLevel == 0)
+		return;
 	modelData = (const uint8_t*)Memory_LockHandle(g_modelTypeTable[modelType].curTexLevel);
 	Memory_UnlockHandle(g_modelTypeTable[modelType].curTexLevel);
+	if (modelData == NULL)
+		return;
 	textureHeader = (const TexLevelHeader*)modelData;
-	sprite =
-		(SpritePayload*)(modelData + *(const uint32_t*)(modelData + textureHeader->imageOffsetTableOffset));
+	if (textureHeader->imageOffsetTableOffset >= textureHeader->dataSize)
+		return;
+	{
+		uint32_t imageOffset =
+			*(const uint32_t*)(modelData + textureHeader->imageOffsetTableOffset);
+		if (imageOffset >= textureHeader->dataSize)
+			return;
+		sprite = (SpritePayload*)(modelData + imageOffset);
+	}
 	if (g_useHardware3D != 0)
 		RenderQuad_DrawRotatedSprite(angle, screenX, screenY, 256, sprite);
 	else {

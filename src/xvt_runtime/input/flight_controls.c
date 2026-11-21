@@ -119,6 +119,15 @@ uint16_t XvtFlightControls_ReadLocal(void) {
 	g_ctrlAxisX = (int16_t)XvtControllerMapping_Axis(XVT_INPUT_AXIS_YAW);
 	g_ctrlAxisY = (int16_t)XvtControllerMapping_Axis(XVT_INPUT_AXIS_PITCH);
 	g_xvtControlRoll = (int16_t)XvtControllerMapping_Axis(XVT_INPUT_AXIS_ROLL);
+	{
+		static unsigned diagTick = 0;
+		if ((++diagTick % 120) == 0) {
+			Aeron_LogError("xvt.input",
+					   "DIAG5 input pad yaw=%d pitch=%d roll=%d mouseFlight=%d",
+					   (int)g_ctrlAxisX, (int)g_ctrlAxisY, (int)g_xvtControlRoll,
+					   (int)(XvtConfig_Settings() ? XvtConfig_Settings()->mouse.mouse_flight_enabled : -1));
+		}
+	}
 	g_keyMods = XvtControllerMapping_Modifiers();
 	if (keyboard == XVT_KEYBOARD_GAMEPLAY)
 		g_keyMods |= XvtKeyboardMapping_ReadButtons();

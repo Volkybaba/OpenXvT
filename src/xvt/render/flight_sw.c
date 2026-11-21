@@ -217,6 +217,7 @@ int16_t g_flightSwRleSpriteY = 0;
 int8_t g_flightSwRlePaletteShift = 0;
 // GLOBAL: XVT 0x9ED23A
 uint8_t g_flightSwRleSpriteEndMarker = 0;
+int g_flightSwRleSpriteLineCount = 0;
 
 #ifndef XVT_MODERN
 // GLOBAL: XVT 0x5233D4
@@ -444,6 +445,14 @@ void FlightSw_BlitSpriteRleFaded8bpp(uint8_t* rleData, int x, int y, int endMark
 // FUNCTION: XVT 0x40EAC0
 void FlightSw_BlitSpriteRleImpl8bpp(uint8_t* rleData, int x, int y, int endMarker, int mirror, char mode,
 									int16_t fadeAmount) {
+	if (rleData == NULL)
+		return;
+	/* volkyxvt v42: garbage sprite coords (short .INT records) must not
+	   write outside the framebuffer. Screen is 640x480; allow a wide
+	   margin for partially off-screen sprites, reject the rest. */
+	if (x < -2048 || x > 2048 || y < -2048 || y > 2048)
+		return;
+	g_flightSwRleSpriteLineCount = 0;
 	unsigned int pixelOffset;
 	uint8_t* destination;
 	uint8_t token;
@@ -473,6 +482,17 @@ void FlightSw_BlitSpriteRleImpl8bpp(uint8_t* rleData, int x, int y, int endMarke
 		}
 #endif
 		destination = g_flightSwFramebufferBase + pixelOffset;
+		/* volkyxvt v42: stop this sprite if the scanline start is outside
+		   the framebuffer (corrupt RLE / garbage coords). */
+		if (destination < g_flightSwFramebufferBase ||
+		    destination >= g_flightSwFramebufferBase + (size_t)g_surfacePitch * (size_t)g_screenHeight)
+			return;
+
+		/* volkyxvt v43: cap scanlines so a truncated RLE stream (no end
+		   marker) cannot read past the sprite buffer forever. */
+		++g_flightSwRleSpriteLineCount;
+		if (g_flightSwRleSpriteLineCount > 1024)
+			return;
 
 		for (;;) {
 			token = *source++;
@@ -4303,6 +4323,14 @@ void FlightSw_BlitSpriteRleFaded(uint8_t* rleData, int x, int y, int endMarker, 
 void FlightSw_BlitSpriteRleImpl(uint8_t* rleData, int16_t x, int16_t y, int endMarker, int mirror, char mode,
 								int16_t fadeAmount) {
 	unsigned int pixelOffset;
+	if (rleData == NULL)
+		return;
+	/* volkyxvt v42: garbage sprite coords (short .INT records) must not
+	   write outside the framebuffer. Screen is 640x480; allow a wide
+	   margin for partially off-screen sprites, reject the rest. */
+	if (x < -2048 || x > 2048 || y < -2048 || y > 2048)
+		return;
+	g_flightSwRleSpriteLineCount = 0;
 	uint8_t* source;
 	uint8_t token;
 	uint8_t color;
@@ -4331,6 +4359,17 @@ void FlightSw_BlitSpriteRleImpl(uint8_t* rleData, int16_t x, int16_t y, int endM
 		}
 #endif
 		destination = (uint16_t*)(g_flightSwFramebufferBase + pixelOffset);
+		/* volkyxvt v42: stop this sprite if the scanline start is outside
+		   the framebuffer (corrupt RLE / garbage coords). */
+		if ((uint8_t*)destination < g_flightSwFramebufferBase ||
+		    (uint8_t*)destination >= g_flightSwFramebufferBase + (size_t)g_surfacePitch * (size_t)g_screenHeight)
+			return;
+
+		/* volkyxvt v43: cap scanlines so a truncated RLE stream (no end
+		   marker) cannot read past the sprite buffer forever. */
+		++g_flightSwRleSpriteLineCount;
+		if (g_flightSwRleSpriteLineCount > 1024)
+			return;
 
 		for (;;) {
 			token = *source++;

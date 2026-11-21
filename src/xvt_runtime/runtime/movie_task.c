@@ -222,6 +222,78 @@ void XvtMovieTask_Stop(void) {
 		XvtMovieSync_Wait();
 }
 
+/* volkyxvt v47: capture the current movie frame as moviescreenN.bmp.
+   The movie is a GPU pixel layer, not the software back buffer, so the
+   frontend back-buffer capture would miss it. The decoded frame is
+   RGBA8888; it is written as a 32-bit BGRA BMP (bottom-up rows). */
+static void XvtMovieTask_CaptureScreenshot(void) {
+	static uint8_t frame[640 * 480 * 4];
+	char fileName[64];
+	int sequence = 0;
+	int width = 0, height = 0;
+	XvtFile* stream;
+	uint8_t header[54];
+	uint32_t fileSize;
+	int y, x;
+	if (!g_movie.player)
+		return;
+	if (!Aeron_VideoCopyCurrentFrame(g_movie.player, frame, sizeof(frame), &width, &height))
+		return;
+	for (;;) {
+		sprintf(fileName, "moviescreen%d.bmp", sequence);
+#ifdef XVT_MODERN
+		stream = XvtStorage_OpenRoot(AERON_VFS_ROOT_USER, fileName, g_fileModeReadBinary);
+#else
+		stream = File_RawOpen(fileName, g_fileModeReadBinary);
+#endif
+		if (stream == NULL)
+			break;
+#ifdef XVT_MODERN
+		File_Close(stream);
+#else
+		File_RawClose(stream);
+#endif
+		++sequence;
+	}
+	fileSize = 54u + (uint32_t)width * (uint32_t)height * 4u;
+	memset(header, 0, sizeof(header));
+	header[0] = 'B'; header[1] = 'M';
+	header[2] = (uint8_t)(fileSize & 0xff);
+	header[3] = (uint8_t)((fileSize >> 8) & 0xff);
+	header[4] = (uint8_t)((fileSize >> 16) & 0xff);
+	header[5] = (uint8_t)((fileSize >> 24) & 0xff);
+	header[10] = 54;
+	header[14] = 40;
+	header[18] = (uint8_t)(width & 0xff);
+	header[19] = (uint8_t)((width >> 8) & 0xff);
+	header[20] = (uint8_t)((width >> 16) & 0xff);
+	header[21] = (uint8_t)((width >> 24) & 0xff);
+	header[22] = (uint8_t)(height & 0xff);
+	header[23] = (uint8_t)((height >> 8) & 0xff);
+	header[24] = (uint8_t)((height >> 16) & 0xff);
+	header[25] = (uint8_t)((height >> 24) & 0xff);
+	header[26] = 1;
+	header[28] = 32;
+	/* File_Open("wb") resolves writable paths to the user root. */
+	stream = File_Open(fileName, "wb");
+	if (stream == NULL)
+		return;
+	File_WriteCount(stream, header, sizeof(header));
+	/* BMP rows are bottom-up; video pixels are RGBA top-down. */
+	for (y = height - 1; y >= 0; --y) {
+		const uint8_t* row = frame + (size_t)y * (size_t)width * 4u;
+		for (x = 0; x < width; ++x) {
+			uint8_t bgra[4];
+			bgra[0] = row[x * 4 + 2];
+			bgra[1] = row[x * 4 + 1];
+			bgra[2] = row[x * 4 + 0];
+			bgra[3] = row[x * 4 + 3];
+			File_WriteCount(stream, bgra, sizeof(bgra));
+		}
+	}
+	File_Close(stream);
+}
+
 void XvtMovieTask_Tick(void) {
 	AeronVideoState state;
 	int key;
@@ -233,6 +305,9 @@ void XvtMovieTask_Tick(void) {
 		g_movie.paused = 0;
 	}
 	Aeron_VideoUpdate(g_movie.player);
+	/* volkyxvt v47: Fn screenshot during a movie captures the video frame. */
+	if (FrontendScreenshot_TakeRequested())
+		XvtMovieTask_CaptureScreenshot();
 	key = (unsigned char)Keyboard_DequeueChar();
 	if (g_movie.synchronize) {
 		uint32_t playing = 1;

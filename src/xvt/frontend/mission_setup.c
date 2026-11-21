@@ -1,4 +1,5 @@
 #include "xvt/frontend/mission_setup.h"
+#include "aeron/log.h"
 #ifdef XVT_MODERN
 #include "xvt_runtime/runtime/campaign_task.h"
 #endif
@@ -591,9 +592,17 @@ int MissionSetup_Update(int frameCounter) {
 		FrontendText_DrawCentered(BUTTON_FONT_SIZE, g_pilotData.multiplayerGameName, &rect, TEXT_COLOR_WHITE);
 	}
 
-	sprintf(g_frontendScratchBuffer, "%s %c%s", FrontendString_Get(FRONTSTR_193_SELECT_MISSION), 4,
-			FrontendString_Get(
-				(FrontendStringId)(g_pilotData.missionDirectoryId + FRONTSTR_194_TRAINING_EXERCISES)));
+	{
+		/* volkyxvt v46: the campaign directory has no own title string
+		   (FRONTSTR_199 returns "No text."); the campaign IS the battle
+		   tour, so show the Battles title instead. */
+		int titleDirectoryId = g_pilotData.missionDirectoryId;
+		if (titleDirectoryId == MISSION_DIRECTORY_CAMPAIGNS)
+			titleDirectoryId = MISSION_DIRECTORY_BATTLES;
+		sprintf(g_frontendScratchBuffer, "%s %c%s", FrontendString_Get(FRONTSTR_193_SELECT_MISSION), 4,
+				FrontendString_Get(
+					(FrontendStringId)(titleDirectoryId + FRONTSTR_194_TRAINING_EXERCISES)));
+	}
 	FrontendDraw_RectAssign(&rect, 84, 90, 434, 108);
 	FrontendText_DrawCentered(TITLE_FONT_SIZE, g_frontendScratchBuffer, &rect, TEXT_COLOR_WHITE);
 	if (Net_IsHost() != 0 || g_frontendMissionSessionMode == FRONTEND_MISSION_SESSION_SINGLEPLAYER) {
@@ -610,8 +619,15 @@ int MissionSetup_Update(int frameCounter) {
 	if (g_frontendMissionSessionMode != FRONTEND_MISSION_SESSION_SINGLEPLAYER) {
 		FrontendNet_UpdateAndDrawPanel(frameCounter);
 	}
-	FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-	sprintf(g_frontendScratchBuffer, "v. %d.%d", 2, 0);
+	/* volkyxvt v48: show the port version on the mission select screen too. */
+	FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+	#ifdef XVT_XWCOLL
+	sprintf(g_frontendScratchBuffer, "VolkyXWColl 0.50");
+	#elif defined(XVT_BASE_GAME)
+	sprintf(g_frontendScratchBuffer, "VolkyXwTf 0.50");
+#else
+	sprintf(g_frontendScratchBuffer, "VolkyXvTbop 0.50");
+#endif
 	FrontendText_DrawCentered(BUTTON_FONT_SIZE, g_frontendScratchBuffer, &rect, TEXT_COLOR_WHITE);
 	FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 	if (g_pilotData.name[0] != '\0') {
@@ -651,6 +667,17 @@ int MissionSetup_Update(int frameCounter) {
 		if (FrontendButton_DrawSpriteHitTest(&rect, "quickflyup", "quickflydown",
 											 FrontendString_Get(FRONTSTR_659_QUICK_START), BUTTON_FONT_SIZE,
 											 0, HOVER_PREVIOUS, "buttonsound") != 0) {
+			/* VolkyXWColl v7: bos/yer-tutucu/kullanilamaz gorevde Quick Start
+			   ucusunu engelle (Begin dugmesindeki v4 guard'inin aynisi;
+			   MELEES/COMBAT icin hic kontrol yoktu). */
+			if (g_missionList == NULL || g_missionCount == 0 ||
+				g_selectedMissionListIndex < 0 ||
+				g_selectedMissionListIndex >= (int)g_missionCount ||
+				g_missionList[g_selectedMissionListIndex].fileName[0] == '\0' ||
+				g_missionList[g_selectedMissionListIndex].isUnavailable != 0) {
+				FrontendButton_DisableOverlayText();
+				return 0;
+			}
 			if ((g_pilotData.missionDirectoryId == MISSION_DIRECTORY_TOURNAMENTS ||
 				 g_pilotData.missionDirectoryId == MISSION_DIRECTORY_BATTLES ||
 				 g_pilotData.missionDirectoryId == MISSION_DIRECTORY_CAMPAIGNS) &&
@@ -739,6 +766,17 @@ int MissionSetup_Update(int frameCounter) {
 		if (FrontendButton_DrawSpriteHitTest(&rect, "nextup", "nextdown",
 											 FrontendString_Get(FRONTSTR_705_BEGIN), BUTTON_FONT_SIZE, 0,
 											 HOVER_BEGIN, "flysound") != 0) {
+			/* VolkyXWColl v4: bos/yer-tutucu/kullanilamaz gorevde Fly ucusu
+			   engelle (eksik .lst icin v3 yer tutucusu fileName="" birakir;
+			   MELEES dogrudan ucusa giderdi ve `melee\` fatal verirdi). */
+			if (g_missionList == NULL || g_missionCount == 0 ||
+				g_selectedMissionListIndex < 0 ||
+				g_selectedMissionListIndex >= (int)g_missionCount ||
+				g_missionList[g_selectedMissionListIndex].fileName[0] == '\0' ||
+				g_missionList[g_selectedMissionListIndex].isUnavailable != 0) {
+				FrontendButton_DisableOverlayText();
+				return 0;
+			}
 			if (g_pilotData.missionDirectoryId == MISSION_DIRECTORY_TOURNAMENTS ||
 				g_pilotData.missionDirectoryId == MISSION_DIRECTORY_BATTLES ||
 				g_pilotData.missionDirectoryId == MISSION_DIRECTORY_CAMPAIGNS) {
@@ -1184,12 +1222,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_selectedMissionListIndex == 0)
 							g_selectedMissionListIndex = g_missionCount - 1;
 						else
 							--g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1241,12 +1287,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_missionCount - g_selectedMissionListIndex == 1)
 							g_selectedMissionListIndex = 0;
 						else
 							++g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1384,12 +1438,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_selectedMissionListIndex == 0)
 							g_selectedMissionListIndex = g_missionCount - 1;
 						else
 							--g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1448,12 +1510,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_missionCount - g_selectedMissionListIndex == 1)
 							g_selectedMissionListIndex = 0;
 						else
 							++g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1573,12 +1643,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_selectedMissionListIndex == 0)
 							g_selectedMissionListIndex = g_missionCount - 1;
 						else
 							--g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1606,12 +1684,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_missionCount - g_selectedMissionListIndex == 1)
 							g_selectedMissionListIndex = 0;
 						else
 							++g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1699,12 +1785,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 													  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 													  SOUND_CENTER_PAN);
 						}
+						{
+							int startIndex = g_selectedMissionListIndex;
+							int steps = 0;
 						do {
 							if (g_selectedMissionListIndex == 0)
 								g_selectedMissionListIndex = g_missionCount - 1;
 							else
 								--g_selectedMissionListIndex;
-						} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+								++steps;
+						} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+								 steps < g_missionCount);
+							if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+								g_selectedMissionListIndex = startIndex;
+						}
 						selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 						g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 						g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1732,12 +1826,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 													  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 													  SOUND_CENTER_PAN);
 						}
+						{
+							int startIndex = g_selectedMissionListIndex;
+							int steps = 0;
 						do {
 							if (g_missionCount - g_selectedMissionListIndex == 1)
 								g_selectedMissionListIndex = 0;
 							else
 								++g_selectedMissionListIndex;
-						} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+								++steps;
+						} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+								 steps < g_missionCount);
+							if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+								g_selectedMissionListIndex = startIndex;
+						}
 						selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 						g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 						g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1824,12 +1926,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_selectedMissionListIndex == 0)
 							g_selectedMissionListIndex = g_missionCount - 1;
 						else
 							--g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1857,12 +1967,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_missionCount - g_selectedMissionListIndex == 1)
 							g_selectedMissionListIndex = 0;
 						else
 							++g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					selectedMissionId = g_missionList[g_selectedMissionListIndex].missionIdx;
 					g_gameConfig.continueBattleOrCampaign = SEQUENCE_CONTINUE;
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] = selectedMissionId;
@@ -1948,12 +2066,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_selectedMissionListIndex == 0)
 							g_selectedMissionListIndex = g_missionCount - 1;
 						else
 							--g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] =
 						g_missionList[g_selectedMissionListIndex].missionIdx;
 					playerFlightGroupIndex = 0;
@@ -1997,12 +2123,20 @@ int MissionSetup_DrawMissionTypeControls(void) {
 												  SOUND_VOLUME_SCALE * g_gameConfig.sfxDatapadVolume,
 												  SOUND_CENTER_PAN);
 					}
+					{
+						int startIndex = g_selectedMissionListIndex;
+						int steps = 0;
 					do {
 						if (g_missionCount - g_selectedMissionListIndex == 1)
 							g_selectedMissionListIndex = 0;
 						else
 							++g_selectedMissionListIndex;
-					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0);
+							++steps;
+					} while (g_missionList[g_selectedMissionListIndex].isUnavailable != 0 &&
+							 steps < g_missionCount);
+						if (g_missionList[g_selectedMissionListIndex].isUnavailable != 0)
+							g_selectedMissionListIndex = startIndex;
+					}
 					g_pilotData.missionDescriptionIds[g_pilotData.missionDirectoryId] =
 						g_missionList[g_selectedMissionListIndex].missionIdx;
 					playerFlightGroupIndex = 0;
@@ -2093,7 +2227,22 @@ void MissionSetup_LoadMissionList(int missionDirectoryId) {
 #ifdef XVT_MODERN
 	stream = File_Open(g_frontendScratchBuffer, "r");
 	if (stream == NULL) {
-		XvtStorage_Fatal("Cannot load mission list", 1);
+		/* volkyxvt v40: missing .lst must not exit the game; show an empty list. */
+		/* xwcoll v3: callers dereference g_missionList[0] unguarded (campaign/battle
+		   continuation checks, title draw) — give them one unavailable placeholder
+		   entry instead of NULL so a missing list can never segfault. */
+		Aeron_LogWarn("xvt.files", "mission list not found: %s", g_frontendScratchBuffer);
+		g_missionList = (MissionListEntry*)malloc(sizeof(*g_missionList));
+		if (g_missionList != NULL) {
+			memset(g_missionList, 0, sizeof(*g_missionList));
+			g_missionList[0].isUnavailable = 1;
+			/* xwcoll v10: bos description, PilotRecord_DrawCampaignMedalsPage
+			   icindeki strlen aritmetigini tasiyor (searchIndex = 0+1-2 ->
+			   UINT_MAX) -> SIGSEGV. Tek karakterli aciklama searchIndex'i 0 yapar. */
+			g_missionList[0].description[0] = '-';
+			g_missionList[0].description[1] = '\0';
+			g_missionCount = 1;
+		}
 		return;
 	}
 #else
@@ -3478,7 +3627,10 @@ int MissionSetup_SelectFirstSequenceMission(void) {
 
 	g_pilotData.missionSequenceActive = 1;
 	if (g_pilotData.missionDirectoryId == MISSION_DIRECTORY_CAMPAIGNS)
-		g_pilotData.missionDirectoryId = MISSION_DIRECTORY_TRAINING_EXERCISES;
+		/* VolkyXWColl v11: X-Wing senaryo gorevleri combat/ listesinde
+		   (train/ listesinde degil); kampanya tanimlayicisinin gorevini
+		   combat/ rebel/imperial listesinden coz. */
+		g_pilotData.missionDirectoryId = MISSION_DIRECTORY_COMBAT_ENGAGEMENTS;
 	else
 		--g_pilotData.missionDirectoryId;
 	g_pilotData.missionSequenceDescriptionId =

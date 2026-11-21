@@ -4,15 +4,20 @@
 
 static int AddPart(XvtHudLayout* layout, const XvtCockpitDefinition* definition, unsigned panel, unsigned key,
 				   XvtHudPartColor mode, unsigned color, int fade) {
-	if (panel >= XVT_HUD_PANEL_BINDINGS || layout->part_count == XVT_HUD_PART_CAPACITY)
+	if (layout->part_count == XVT_HUD_PART_CAPACITY)
 		return 0;
+	/* Old/short .INT can carry a garbage selector (>= panel count) and the
+	 * missing .PNL leaves asset_id 0. Clamp the index and tolerate the
+	 * missing art: the part renders nothing instead of failing the flight. */
+	if (panel >= XVT_HUD_PANEL_BINDINGS)
+		panel = 0;
 	XvtHudPartRequest* part = &layout->parts[layout->part_count++];
 	part->source = definition->panels[panel];
 	part->key = (uint16_t)key;
 	part->color_mode = (uint8_t)mode;
 	part->color = (uint8_t)color;
 	part->fade = (int16_t)fade;
-	return part->source.asset_id != 0;
+	return 1;
 }
 
 static int BindFrames(XvtHudLayout* layout, const XvtCockpitState* state, XvtHudSpriteRole role,

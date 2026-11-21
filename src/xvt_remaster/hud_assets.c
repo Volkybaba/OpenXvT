@@ -437,6 +437,8 @@ int XvtHudAssets_Select(const XvtCockpitState* state, const XvtHudLayout* layout
 				g_current = group->views[view];
 				return 1;
 			}
-	Aeron_LogError("xvt.remaster", "cockpit view %u has no prepared resident artwork", state->view.hud_state);
-	return 0;
+	/* No prepared artwork (old/short .INT: panel sprites never loaded). Render
+	 * without cockpit artwork instead of failing the whole flight. */
+	g_current = &g_empty;
+	return 1;
 }

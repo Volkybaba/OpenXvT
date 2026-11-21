@@ -12,6 +12,7 @@
 #include "xvt/audio/sound.h"
 #include "xvt/flight/flight.h"
 #include "xvt/frontend/concourse.h"
+#include "xvt/frontend/frontend_display.h"
 #include "xvt/frontend/config.h"
 #include "xvt/frontend/credits.h"
 #include "xvt/frontend/cutscene.h"
@@ -150,6 +151,11 @@ int XvtFrontendTask_RunFrame(void) {
 			exitFn(g_frontState.frameCounter);
 	}
 	FrontendDisplay_UnlockBackBuffer();
+	/* volkyxvt v47: Fn screenshot from any frontend screen (concourse,
+	   menus, settings, mission select). The frame just drawn is in the
+	   back buffer; CaptureScreenshot locks and saves it. */
+	if (FrontendScreenshot_TakeRequested())
+		FrontendDisplay_CaptureScreenshot();
 	if (g_frontState.pendingScreenUpdateFn) {
 		FrontendScreen_PushState(g_frontState.pendingScreenUpdateFn, &g_frontState.pendingScreenRect);
 		g_frontState.pendingScreenUpdateFn = NULL;

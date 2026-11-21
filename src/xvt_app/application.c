@@ -108,6 +108,13 @@ int XvtApplication_Run(const XvtLaunchOptions* options) {
 	}
 	XvtHostConfig_InitAeron(options, &config);
 	Aeron_LogInfo("xvt.app", "initializing OpenXvT %s host", OPENXVT_VERSION);
+#ifdef XVT_XWCOLL
+	Aeron_LogInfo("xvt.app", "VolkyXWColl build v11");
+#elif defined(XVT_BASE_GAME)
+	Aeron_LogInfo("xvt.app", "volkyxvtf build v14");
+#else
+	Aeron_LogInfo("xvt.app", "volkyxvt build v55");
+#endif
 	if (!Aeron_Init(&config)) {
 		/* Aeron unwinds its own partial initialization; shutdown is idempotent. */
 		Aeron_Shutdown();
@@ -129,7 +136,11 @@ int XvtApplication_Run(const XvtLaunchOptions* options) {
 	}
 	if (!XvtRemaster_Init())
 		goto cleanup;
+#ifdef XVT_BASE_GAME
+	AeronWinmmCdAudioDesc cd = { Aeron_GetVfs(), AERON_VFS_ROOT_ASSET, "MUSIC" };
+#else
 	AeronWinmmCdAudioDesc cd = { Aeron_GetVfs(), AERON_VFS_ROOT_ASSET, "BalanceOfPower/MUSIC" };
+#endif
 	if (!AeronWinmm_ConfigureCdAudio(&cd)) {
 		Aeron_LogError("xvt.setup", "Cannot configure installed CD music tracks");
 		goto cleanup;

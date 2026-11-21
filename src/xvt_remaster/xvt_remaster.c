@@ -160,22 +160,37 @@ void XvtRemaster_Frame(int32_t delta_us) {
 			return;
 		}
 		int ok = 1;
-		if (render_flight)
+		const char* failed_step = NULL;
+		if (render_flight) {
 			ok = XvtRemasterPreview_RenderCrt(cmd, snapshot, width, height);
-		if (ok && (render_flight || (standalone && hud_dirty)))
+			if (!ok) failed_step = "render-crt";
+		}
+		if (ok && (render_flight || (standalone && hud_dirty))) {
 			ok = XvtHudRenderer_Prepare(cmd, &snapshot->cockpit, snapshot->world_generation,
 										frame ? snapshot->target_boxes : NULL,
 										frame ? snapshot->target_box_count : 0, frame ? &frame->view : NULL,
 										frame ? XvtRemasterPreview_CrtLinear() : NULL, width, height);
-		if (ok && render_flight)
+			if (!ok) failed_step = "hud-prepare";
+		}
+		if (ok && render_flight) {
 			ok = XvtRemasterFlight_Render(cmd, snapshot, XvtRenderSnapshot_Previous());
-		if (ok && standalone && hud_dirty)
+			if (!ok) failed_step = "flight-render";
+		}
+		if (ok && standalone && hud_dirty) {
 			ok = XvtFlightPipeline_DrawStandaloneHud(cmd, width, height);
-		if (ok && !direct)
+			if (!ok) failed_step = "standalone-hud";
+		}
+		if (ok && !direct) {
 			ok = XvtFlightPipeline_Retain(cmd);
-		if (ok && frontend_replay)
+			if (!ok) failed_step = "retain";
+		}
+		if (ok && frontend_replay) {
 			ok = XvtRemasterPreview_Render(cmd, snapshot, width, height) &&
 				 XvtFrontend_Replay(cmd, snapshot, width, height);
+			if (!ok) failed_step = "frontend-replay";
+		}
+		if (!ok)
+			Aeron_LogError("xvt.remaster", "DIAG8 frame step failed: %s", failed_step ? failed_step : "?");
 		if (!ok) {
 			Aeron_CancelCommandBuffer(cmd);
 			XvtHudRenderer_Invalidate();

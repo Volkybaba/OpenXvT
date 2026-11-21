@@ -342,6 +342,17 @@ int Pilot_FindAndLoadByName(const char* pilotName) {
 		++fileIndex;
 	}
 
+	/* v11: If the requested pilot is not found (e.g. lastpilot names a pilot whose
+	   .plt is gone), load the first available .plt instead of leaving the game
+	   pilotless. A pilotless game cannot start single-player and falls through
+	   to the TCP/IP join screen (lobby https://aeron.rgb-labs.io). */
+	if (wasLoaded == 0 && fileList->count > 0) {
+		node = fileList->head;
+		if (Pilot_LoadFromPath(node->path) != 0) {
+			wasLoaded = 1;
+		}
+	}
+
 	FrontendFileList_Free(fileList);
 	return wasLoaded;
 }

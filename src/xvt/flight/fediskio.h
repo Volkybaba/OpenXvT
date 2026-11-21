@@ -91,6 +91,7 @@ int FeDiskIo_ShowFatalErrorMessageAndWaitKey(const char* message);
 int File_OpenGlobalStream(const char* fileName, const char* mode, int promptOnFail, int locationMode);
 int16_t FeDiskIo_CloseGlobalStream(int16_t removeFileOnError);
 size_t FeDiskIo_ReadWithRetryPrompt(void* dst, size_t elemSize, size_t elemCount, XvtFile* stream);
+size_t FeDiskIo_ReadTolerant(void* dst, size_t elemSize, size_t elemCount, XvtFile* stream);
 void FeDiskIo_FatalError(FileErrorStringId errorCode);
 void File_PrintFatalMessageAndExit(const char* message, int exitCode);
 

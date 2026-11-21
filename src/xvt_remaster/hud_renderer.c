@@ -94,8 +94,10 @@ int XvtHudRenderer_Prepare(AeronCommandBuffer* cmd, const XvtCockpitState* state
 		g_before = AeronDrawList_Create(65536);
 	if (!g_after)
 		g_after = AeronDrawList_Create(65536);
-	if (!g_before || !g_after || !SelectAssets(state, view != NULL))
+	if (!g_before || !g_after || !SelectAssets(state, view != NULL)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: drawlists/select");
 		goto failed;
+	}
 	XvtHudDraw draw = { .before = g_before,
 						.after = g_after,
 						.state = state,
@@ -106,8 +108,10 @@ int XvtHudRenderer_Prepare(AeronCommandBuffer* cmd, const XvtCockpitState* state
 	XvtHudLayout_Fit(draw.layout, width, height, &draw.scale, &draw.offset_x, &draw.offset_y);
 	int crt_visible = state->crt.valid && crt_color;
 	if (!XvtCrt_PrepareView(&state->crt, &state->definition.layout, crt_visible ? crt_color : NULL, width,
-							height, draw.scale, draw.offset_x, draw.offset_y))
+							height, draw.scale, draw.offset_x, draw.offset_y)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: crt");
 		goto failed;
+	}
 	HudPreparationKey key =
 		MakePreparationKey(state, markers, marker_count, view, width, height, crt_visible);
 	if (g_prepared && !memcmp(&g_key, &key, sizeof key)) {
@@ -122,15 +126,33 @@ int XvtHudRenderer_Prepare(AeronCommandBuffer* cmd, const XvtCockpitState* state
 	XvtHudInstruments_DrawCovers(&draw);
 	XvtHudInstruments_DrawRadar(&draw);
 	XvtHudInstruments_DrawWidgets(&draw);
-	if (!XvtHudPanes_DrawReadouts(&draw, XVT_COCKPIT_BEFORE_CRT))
+	if (!XvtHudPanes_DrawReadouts(&draw, XVT_COCKPIT_BEFORE_CRT)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: readouts-before");
 		goto failed;
+	}
 	if (crt_visible)
 		XvtHudInstruments_DrawCrtMarker(&draw);
 	XvtHudInstruments_DrawMouseStick(&draw, view);
-	if (!XvtHudPanes_DrawReadouts(&draw, XVT_COCKPIT_AFTER_CRT) || !XvtHudPanes_DrawMessages(&draw) ||
-		!XvtHudPanes_DrawPages(&draw) || !XvtHudPanes_DrawOverlays(&draw) ||
-		!AeronDrawList_Prepare(g_before, cmd) || !AeronDrawList_Prepare(g_after, cmd))
+	if (!XvtHudPanes_DrawReadouts(&draw, XVT_COCKPIT_AFTER_CRT)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: readouts-after");
 		goto failed;
+	}
+	if (!XvtHudPanes_DrawMessages(&draw)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: messages");
+		goto failed;
+	}
+	if (!XvtHudPanes_DrawPages(&draw)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: pages");
+		goto failed;
+	}
+	if (!XvtHudPanes_DrawOverlays(&draw)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: overlays");
+		goto failed;
+	}
+	if (!AeronDrawList_Prepare(g_before, cmd) || !AeronDrawList_Prepare(g_after, cmd)) {
+		Aeron_LogError("xvt.remaster", "DIAG7 hud prepare fail: drawlist-prepare");
+		goto failed;
+	}
 	g_key = key;
 	g_prepared = g_ready = 1;
 	return 1;

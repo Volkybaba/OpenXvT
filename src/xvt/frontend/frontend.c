@@ -123,6 +123,11 @@ int Frontend_LoadResources(void) {
 	FrontendText_LoadFont(12);
 	FrontendText_LoadFont(10);
 	FrontImage_LoadResourceList("frontres\\top.lst");
+#ifdef XVT_BASE_GAME
+	/* v9: ana oyunun top.lst'sinde yoksa bile orijinal dugme resimlerini kaydet */
+	FrontImage_RegisterResource("frontres\\PUSHED03.BMP", "flysolodown", 0, 1);
+	FrontImage_RegisterResource("frontres\\PUSHED04.BMP", "creategamedown", 0, 1);
+#endif
 	FrontImage_LoadResourceList("frontres\\side.lst");
 	FrontImage_LoadResourceList("frontres\\awards.lst");
 	FrontImage_LoadResourceList("frontres\\promo.lst");
@@ -253,7 +258,7 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 	if (screenContext < SCREEN_CONTEXT_CONFIG || screenContext > SCREEN_CONTEXT_TECH_LIBRARY) {
 		if (screenContext != SCREEN_CONTEXT_DEBRIEF) {
 			actionTriggered = FrontendButton_DrawSpriteHitTest(
-				&rect, NULL, "exitdown", FrontendString_Get(FRONTSTR_006_EXIT_TO_WINDOWS), BUTTON_FONT_SIZE,
+				&rect, "exitup", "exitdown", FrontendString_Get(FRONTSTR_006_EXIT_TO_WINDOWS), BUTTON_FONT_SIZE,
 				0, EXIT_HOVER_SLOT, "buttonsound");
 		} else {
 			FrontImage_DrawSprite("configup", 0, 0);
@@ -444,7 +449,7 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 			}
 		}
 	} else if (screenContext < SCREEN_CONTEXT_TECH_LIBRARY || screenContext > SCREEN_CONTEXT_TECH_LIBRARY) {
-		if (FrontendButton_DrawSpriteHitTest(&rect, NULL, "configdown",
+		if (FrontendButton_DrawSpriteHitTest(&rect, "configup", "configdown",
 											 FrontendString_Get(FRONTSTR_005_CONFIGURATION), BUTTON_FONT_SIZE,
 											 0, CONFIG_HOVER_SLOT, "buttonsound") != 0 &&
 			(screenContext >= 0 &&
@@ -489,7 +494,7 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 												BUTTON_FONT_SIZE, 0);
 		} else {
 			actionTriggered =
-				FrontendButton_DrawSpriteHitTest(&rect, NULL, "joinindown", g_frontendScratchBuffer,
+				FrontendButton_DrawSpriteHitTest(&rect, "joinindown", "joinindown", g_frontendScratchBuffer,
 												 BUTTON_FONT_SIZE, 0, JOIN_HOVER_SLOT, "buttonsound");
 #ifdef XVT_MODERN
 			actionTriggered = XvtFrontendAction_Trigger(XVT_ACTION_COMMON, 2, actionTriggered);
@@ -586,7 +591,13 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 			}
 		}
 
+		/* v7: g_hostCdAvailable base oyunda 0 (train/1ta01bf.tie yok) -> Host hic
+		   cizilmiyordu. Base oyunda daima ciz; BoP'de zaten 1. */
+#ifdef XVT_BASE_GAME
+		if (1) {
+#else
 		if (g_hostCdAvailable != 0) {
+#endif
 			FrontendDraw_RectAssign(&rect, 257, 4, 389, 42);
 			FrontendButton_SetOverlayText(FrontendString_Get(FRONTSTR_004_HOST_GAME));
 			switch (g_gameConfig.networkType) {
@@ -616,13 +627,38 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 			}
 			strcpy(g_frontendScratchBuffer, tooltipText);
 			if (g_frontendMissionSessionMode == FRONTEND_MISSION_SESSION_NET_HOST) {
+#ifdef XVT_BASE_GAME
+				/* v9: orijinal creategamedown resmi (kayitliysa); yoksa beyaz yazi */
+				if (FrontImage_FindResourceByName("creategamedown") != -1) {
+					FrontendButton_UsePressedOverlayStyle();
+					FrontendButton_DrawSpriteAndTooltip(&rect, "creategamedown", g_frontendScratchBuffer,
+													BUTTON_FONT_SIZE, 0);
+				} else {
+					FrontendDraw_Rect(&rect, 0, 0, 0xFFFF, 1);
+					FrontendText_DrawCentered(BUTTON_FONT_SIZE, g_frontendScratchBuffer, &rect, 0);
+				}
+#else
 				FrontendButton_UsePressedOverlayStyle();
 				FrontendButton_DrawSpriteAndTooltip(&rect, "creategamedown", g_frontendScratchBuffer,
 													BUTTON_FONT_SIZE, 0);
+#endif
 			} else {
-				actionTriggered =
-					FrontendButton_DrawSpriteHitTest(&rect, NULL, "creategamedown", g_frontendScratchBuffer,
+#ifdef XVT_BASE_GAME
+				/* v9: orijinal creategamedown resmi (kayitliysa); yoksa beyaz yazi */
+				if (FrontImage_FindResourceByName("creategamedown") != -1) {
+					actionTriggered =
+						FrontendButton_DrawSpriteHitTest(&rect, "creategamedown", "creategamedown", g_frontendScratchBuffer,
 													 BUTTON_FONT_SIZE, 0, HOST_HOVER_SLOT, "buttonsound");
+				} else {
+					FrontendDraw_Rect(&rect, 0, 0, 0xFFFF, 1);
+					FrontendText_DrawCentered(BUTTON_FONT_SIZE, g_frontendScratchBuffer, &rect, 0);
+					actionTriggered = (FrontendButton_HandleTextButton(&rect, g_frontendScratchBuffer, BUTTON_FONT_SIZE, 0, HOST_HOVER_SLOT, "buttonsound") == 1);
+				}
+#else
+				actionTriggered =
+					FrontendButton_DrawSpriteHitTest(&rect, "creategamedown", "creategamedown", g_frontendScratchBuffer,
+													 BUTTON_FONT_SIZE, 0, HOST_HOVER_SLOT, "buttonsound");
+#endif
 #ifdef XVT_MODERN
 				actionTriggered = XvtFrontendAction_Trigger(XVT_ACTION_COMMON, 3, actionTriggered);
 #endif
@@ -717,16 +753,44 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 				}
 			}
 
+			/* volkyxvtf v4/v6: Fly Solo up-sprite was "NULL" (invisible).
+			   v4 gave it the down-sprite, but "flysolodown" does not exist in the
+			   base-game frontres, so v6 draws a visible text button instead. */
 			FrontendDraw_RectAssign(&rect, 153, 4, 252, 43);
 			FrontendButton_SetOverlayText(FrontendString_Get(FRONTSTR_002_FLY_SOLO));
 			if (g_frontendMissionSessionMode == FRONTEND_MISSION_SESSION_SINGLEPLAYER) {
+#ifdef XVT_BASE_GAME
+				/* v9: orijinal flysolodown resmi (kayitliysa); yoksa beyaz yazi */
+				if (FrontImage_FindResourceByName("flysolodown") != -1) {
+					FrontendButton_UsePressedOverlayStyle();
+					FrontendButton_DrawSpriteAndTooltip(
+						&rect, "flysolodown", FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE, 0);
+				} else {
+					FrontendDraw_Rect(&rect, 0, 0, 0xFFFF, 1);
+					FrontendText_DrawCentered(BUTTON_FONT_SIZE, FrontendString_Get(FRONTSTR_002_FLY_SOLO), &rect, 0);
+				}
+#else
 				FrontendButton_UsePressedOverlayStyle();
 				FrontendButton_DrawSpriteAndTooltip(
 					&rect, "flysolodown", FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE, 0);
+#endif
 			} else {
+#ifdef XVT_BASE_GAME
+				/* v9: orijinal flysolodown resmi (kayitliysa); yoksa beyaz yazi */
+				if (FrontImage_FindResourceByName("flysolodown") != -1) {
+					actionTriggered = FrontendButton_DrawSpriteHitTest(
+						&rect, "flysolodown", "flysolodown", FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE,
+						0, SOLO_HOVER_SLOT, "buttonsound");
+				} else {
+					FrontendDraw_Rect(&rect, 0, 0, 0xFFFF, 1);
+					FrontendText_DrawCentered(BUTTON_FONT_SIZE, FrontendString_Get(FRONTSTR_002_FLY_SOLO), &rect, 0);
+					actionTriggered = (FrontendButton_HandleTextButton(&rect, FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE, 0, SOLO_HOVER_SLOT, "buttonsound") == 1);
+				}
+#else
 				actionTriggered = FrontendButton_DrawSpriteHitTest(
-					&rect, "NULL", "flysolodown", FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE,
+					&rect, "flysolodown", "flysolodown", FrontendString_Get(FRONTSTR_002_FLY_SOLO), BUTTON_FONT_SIZE,
 					0, SOLO_HOVER_SLOT, "buttonsound");
+#endif
 #ifdef XVT_MODERN
 				actionTriggered = XvtFrontendAction_Trigger(XVT_ACTION_COMMON, 4, actionTriggered);
 #endif
@@ -820,7 +884,7 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 			FrontendText_ResetGlyphScratch();
 		}
 	} else if (screenContext < SCREEN_CONTEXT_CONFIG &&
-			   FrontendButton_DrawSpriteHitTest(&rect, NULL, "reviewcraftdown",
+			   FrontendButton_DrawSpriteHitTest(&rect, "reviewcraftup", "reviewcraftdown",
 												FrontendString_Get(FRONTSTR_001_CRAFT_DATABASE),
 												BUTTON_FONT_SIZE, 0, CRAFT_HOVER_SLOT, "buttonsound") != 0) {
 		FrontendDraw_RectAssign(&screenRect, 0, 0, 640, 480);
@@ -836,7 +900,7 @@ int Frontend_HandleCommonScreenControls(int screenContext) {
 				&rect, "pilotregdown", FrontendString_Get(FRONTSTR_000_PILOT_RECORDS), BUTTON_FONT_SIZE, 0);
 		} else {
 			actionTriggered = FrontendButton_DrawSpriteHitTest(
-				&rect, NULL, "pilotregdown", FrontendString_Get(FRONTSTR_000_PILOT_RECORDS), BUTTON_FONT_SIZE,
+				&rect, "pilotregdown", "pilotregdown", FrontendString_Get(FRONTSTR_000_PILOT_RECORDS), BUTTON_FONT_SIZE,
 				0, PILOT_HOVER_SLOT, "buttonsound");
 #ifdef XVT_MODERN
 			actionTriggered = XvtFrontendAction_Trigger(XVT_ACTION_COMMON, 5, actionTriggered);
@@ -1013,8 +1077,17 @@ int ErrorText_LoadLine(int lineIndex, char* outText) {
 int Frontend_MarkHostCdAvailable(void) {
 #ifdef XVT_MODERN
 	char path[XVT_PATH_CAPACITY];
+#ifdef XVT_BASE_GAME
+	/* v8: base game has no train/1ta01bf.tie (BoP-only). The old check set
+	   g_hostCdAvailable=0, which made XvtCampaignTask_EnterTeams fatal with
+	   "Cannot load required training mission" on every Solo flight select
+	   (log_22). Base game needs no host CD. */
+	g_hostCdAvailable = 1;
+	return g_hostCdAvailable;
+#else
 	g_hostCdAvailable = XvtStorage_ResolveAsset("train/1ta01bf.tie", path, sizeof(path)) == 1;
 	return g_hostCdAvailable;
+#endif
 #else
 
 	char fileName[128] = "c\\train\\1TA01BF.TIE\0";

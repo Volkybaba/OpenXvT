@@ -4,6 +4,7 @@
 #include "xvt/frontend/config.h"
 #include "xvt/frontend/front_image.h"
 #include "xvt/frontend/frontend.h"
+#include "xvt/input/keyboard.h"
 #include "xvt/frontend/frontend_button.h"
 #include "xvt/frontend/frontend_cursor.h"
 #include "xvt/frontend/frontend_display.h"
@@ -183,8 +184,14 @@ int XvtNetworkBrowser_Screen(int first_frame) {
 						 : !snapshot->room_count                                    ? "No games found."
 																					: "";
 	FrontendText_DrawWrapped(12, status, &rect, 0xffff, 2, 0);
-	FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-	FrontendText_DrawCentered(12, "v. 2.0", &rect, 0xffff);
+	FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+	#ifdef XVT_XWCOLL
+	FrontendText_DrawCentered(12, "VolkyXWColl 0.50", &rect, 0xffff);
+	#elif defined(XVT_BASE_GAME)
+	FrontendText_DrawCentered(12, "VolkyXwTf 0.50", &rect, 0xffff);
+#else
+	FrontendText_DrawCentered(12, "VolkyXvTbop 0.50", &rect, 0xffff);
+#endif
 	FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 	if (g_pilotData.name[0]) {
 		snprintf(g_frontendScratchBuffer, sizeof(g_frontendScratchBuffer), "%c%s %c%s", 6,
@@ -198,6 +205,13 @@ int XvtNetworkBrowser_Screen(int first_frame) {
 		FrontImage_DrawSprite(g_frontendScratchBuffer, 420, 453);
 	}
 	FrontendNet_DrawJoinGameSidebarsAndQueryAll();
+	/* v10: ESC (Select) = back to concourse (same as the Previous button). */
+	if (Keyboard_PeekChar() == 27) {
+		Keyboard_DiscardChar();
+		g_frontendMissionSessionMode = FRONTEND_MISSION_SESSION_NONE;
+		FrontendScreen_SetCallbacks(Concourse_Update, Concourse_Exit);
+		return 0;
+	}
 	if (Frontend_HandleCommonScreenControls(0))
 		return 1;
 	if (XvtDialog_IsActive())
@@ -218,6 +232,9 @@ int XvtNetworkBrowser_Screen(int first_frame) {
 											 FrontendString_Get(FRONTSTR_018_JOIN), 12, 0, 7, "flysound"))
 			XvtNetworkTask_Begin(XVT_NETWORK_CONNECT);
 	}
+	/* v9: "leaveup" sprite is invisible on this device; draw GERI AFTER the buttons so it is on top. */
+	FrontendDraw_RectAssign(&rect, 85, 447, 176, 471);
+	FrontendText_DrawCentered(12, "GERI", &rect, 0xFFFF);
 	FrontendButton_DisableOverlayText();
 	return 0;
 }

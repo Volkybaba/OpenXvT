@@ -1408,6 +1408,21 @@ void FrontendDisplay_ResetGlobalStatePreservingNetworkSession(void) {
 	}
 }
 
+/* volkyxvt v47: screenshot requested by the Fn/guide button outside flight.
+   Set by the controller mapping, consumed by the frontend frame / movie tick. */
+static int g_frontendScreenshotRequested = 0;
+
+void FrontendScreenshot_Request(void) {
+	g_frontendScreenshotRequested = 1;
+}
+
+int FrontendScreenshot_TakeRequested(void) {
+	if (!g_frontendScreenshotRequested)
+		return 0;
+	g_frontendScreenshotRequested = 0;
+	return 1;
+}
+
 // FUNCTION: XVT 0x4D5380
 int FrontendDisplay_CaptureScreenshot(void) {
 	char fileName[64];

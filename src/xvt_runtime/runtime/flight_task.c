@@ -223,8 +223,12 @@ void XvtFlightTask_Tick(void) {
 			g_flight.phase = XVT_FLIGHT_FIRST_DELTA;
 			break;
 		case XVT_FLIGHT_FIRST_DELTA:
-			if (!XvtCockpit_LoadingAssetsReady())
+			if (!XvtCockpit_LoadingAssetsReady()) {
+				static unsigned diag6Tick = 0;
+				if ((++diag6Tick % 300) == 0)
+					Aeron_LogError("xvt.flight", "DIAG6 waiting FIRST_DELTA");
 				break;
+			}
 			g_inputTimestamp += Time_GetFrameDelta();
 			if (g_inputTimestamp) {
 				Object_RelinkMobileObjectPointers();

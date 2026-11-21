@@ -305,6 +305,14 @@ void XvtCockpit_Export(XvtCockpitState* destination) { XvtCockpit_CopyState(dest
 void XvtCockpit_ResourcesPrepared(uint64_t generation) { g_preparedResources = generation; }
 
 int XvtCockpit_LoadingAssetsReady(void) {
+	/* If the cockpit .LFD resources never loaded (short/old .INT), do not block
+	 * the flight on them: the ship must fly without cockpit panels. */
+	if (!g_hudCockpitResourcesLoaded)
+		return 1;
+	/* Same when the panel sprite set is empty (garbage .PNL baseName): the
+	 * cockpit definition can never become "valid", so do not wait for it. */
+	if (!g_working.definition.panels[0].asset_id)
+		return 1;
 	return g_working.valid && g_preparedResources == g_working.definition.resource_generation;
 }
 

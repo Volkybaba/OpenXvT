@@ -401,8 +401,15 @@ int Concourse_Update(int frameCounter) {
 	if (XvtDialog_IsActive())
 		return 0;
 #endif
-	FrontendDraw_RectAssign(&rect, 507, 452, 562, 464);
-	sprintf(g_frontendScratchBuffer, "v. %d.%d", CONCOURSE_VERSION_MAJOR, CONCOURSE_VERSION_MINOR);
+	/* volkyxvt v47: show the port version on the concourse. */
+	FrontendDraw_RectAssign(&rect, 500, 452, 636, 464);
+	#ifdef XVT_XWCOLL
+	sprintf(g_frontendScratchBuffer, "VolkyXWColl 0.50");
+	#elif defined(XVT_BASE_GAME)
+	sprintf(g_frontendScratchBuffer, "VolkyXwTf 0.50");
+#else
+	sprintf(g_frontendScratchBuffer, "VolkyXvTbop 0.50");
+#endif
 	FrontendText_DrawCentered(12, g_frontendScratchBuffer, &rect, 0xFFFF);
 	FrontendDraw_RectAssign(&rect, 200, 452, 436, 464);
 	if (g_pilotData.name[0] != '\0') {

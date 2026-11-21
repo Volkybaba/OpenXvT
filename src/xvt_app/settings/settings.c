@@ -11,6 +11,7 @@
 #include "xvt_runtime/input/controller_mapping.h"
 #include "xvt_runtime/runtime/dialog_task.h"
 #include "xvt_runtime/runtime/flight_task.h"
+#include "xvt/flight/flight.h"
 #include "xvt_runtime/runtime/port.h"
 #include "xvt_runtime/timing/flight_timing.h"
 #include <stdio.h>
@@ -19,9 +20,10 @@
 static struct {
 	AeronUiContext* ui;
 	XvtSettingsPageFn pages[5];
-	bool open, close_requested, captures_controller, ready;
+	bool open, close_requested, captures_controller, ready, just_opened;
 	int page;
 	int exit_confirmation_open;
+	int abort_confirmation_open;
 	char error[1024];
 	XvtControllerSettings controller;
 	XvtKeyboardSettings keyboard;
@@ -124,6 +126,7 @@ bool XvtSettingsMenu_CapturesController(void) { return g_menu.open && g_menu.cap
 void XvtSettingsMenu_Show(void) {
 	if (g_menu.ui && !g_menu.open) {
 		g_menu.open = true;
+		g_menu.just_opened = true;
 		XvtInstallationPage_Open();
 		XvtControllerSettings_Open(&g_menu.controller, XvtConfig_Settings());
 		XvtKeyboardSettings_Open(&g_menu.keyboard, XvtConfig_Settings());
@@ -146,8 +149,9 @@ void XvtSettingsMenu_CompleteClose(void) {
 	XvtControllerSettings_CancelCapture(&g_menu.controller, g_menu.ui);
 	XvtInstallationPage_CancelPicker();
 	AeronUi_CancelControllerCapture(g_menu.ui);
-	g_menu.open = g_menu.close_requested = g_menu.captures_controller = false;
+	g_menu.open = g_menu.close_requested = g_menu.captures_controller = g_menu.just_opened = false;
 	g_menu.exit_confirmation_open = 0;
+	g_menu.abort_confirmation_open = 0;
 	XvtPort_SetSettingsOpen(0);
 }
 
@@ -167,6 +171,23 @@ static void XvtSettingsMenu_DrawExitConfirmation(AeronUiContext* ui) {
 	if (AeronUi_Button(ui, "Exit Game##exit-confirmation")) {
 		g_menu.exit_confirmation_open = 0;
 		Aeron_RequestQuit();
+	}
+	AeronUi_EndColumns(ui);
+	AeronUi_EndModal(ui);
+}
+
+static void XvtSettingsMenu_DrawAbortConfirmation(AeronUiContext* ui) {
+	if (!AeronUi_BeginModal(ui, "ABORT MISSION", &g_menu.abort_confirmation_open, NULL))
+		return;
+	AeronUi_Help(ui, "Abort the current mission and return to the debriefing?");
+	AeronUi_BeginColumns(ui, 2, NULL);
+	if (AeronUi_Button(ui, "Cancel"))
+		g_menu.abort_confirmation_open = 0;
+	AeronUi_NextColumn(ui);
+	if (AeronUi_Button(ui, "Abort Mission##abort-confirmation")) {
+		g_menu.abort_confirmation_open = 0;
+		g_flightMissionState.missionEndPending = 1;
+		XvtSettingsMenu_RequestClose();
 	}
 	AeronUi_EndColumns(ui);
 	AeronUi_EndModal(ui);
@@ -196,7 +217,12 @@ void XvtSettingsMenu_Frame(const AeronInputSnapshot* input, float seconds) {
 			AeronUi_Error(g_menu.ui, g_menu.error);
 		AeronUi_Separator(g_menu.ui);
 		if (g_menu.page == 0) {
-			AeronUi_BeginColumns(g_menu.ui, 2, NULL);
+			int in_flight = XvtFlightTask_IsActive();
+			AeronUi_BeginColumns(g_menu.ui, in_flight ? 3 : 2, NULL);
+			if (in_flight && AeronUi_Button(g_menu.ui, "Abort Mission"))
+				g_menu.abort_confirmation_open = 1;
+			if (in_flight)
+				AeronUi_NextColumn(g_menu.ui);
 			if (AeronUi_Button(g_menu.ui, "Exit Game"))
 				g_menu.exit_confirmation_open = 1;
 			AeronUi_NextColumn(g_menu.ui);
@@ -212,13 +238,32 @@ void XvtSettingsMenu_Frame(const AeronInputSnapshot* input, float seconds) {
 			XvtKeyboardSettings_DrawModals(&g_menu.keyboard, g_menu.ui);
 		if (g_menu.exit_confirmation_open)
 			XvtSettingsMenu_DrawExitConfirmation(g_menu.ui);
+		if (g_menu.abort_confirmation_open)
+			XvtSettingsMenu_DrawAbortConfirmation(g_menu.ui);
 		AeronUi_EndWindow(g_menu.ui);
 	}
 	XvtInstallationPage_DrawPicker(g_menu.ui);
 	AeronUiOutput output = AeronUi_EndFrame(g_menu.ui);
 	g_menu.captures_controller = output.capture_all != 0;
-	if (output.cancel_pressed)
+	if (output.cancel_pressed && !g_menu.just_opened)
 		XvtSettingsMenu_RequestClose();
+	/* xwcoll v5: keep just_opened while ESC / gamepad back is still held, so a
+	   delayed duplicate ESC edge (gptokeyb keyboard ESC arriving a frame after
+	   the SDL gamepad back that opened the menu) cannot close the menu. */
+	if (g_menu.just_opened) {
+		bool esc_held = input && input->key_down[AERON_KEY_ESCAPE];
+		if (!esc_held && input) {
+			for (int i = 0; i < AERON_CONTROLLER_MAX; ++i) {
+				if (input->controllers[i].connected &&
+					(input->controllers[i].gamepad_buttons & (1u << AERON_GAMEPAD_BUTTON_BACK))) {
+					esc_held = true;
+					break;
+				}
+			}
+		}
+		if (!esc_held)
+			g_menu.just_opened = false;
+	}
 	AeronUi_Submit(g_menu.ui);
 }
 

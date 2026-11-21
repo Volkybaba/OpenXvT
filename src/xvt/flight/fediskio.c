@@ -1,5 +1,7 @@
 #include "xvt/flight/fediskio.h"
 
+#include "aeron/log.h"
+
 #ifdef XVT_MODERN
 #include "xvt_runtime/snapshot/cockpit_messages.h"
 #include "xvt_runtime/snapshot/render_assets.h"
@@ -3649,9 +3651,30 @@ size_t FeDiskIo_ReadWithRetryPrompt(void* dst, size_t elemSize, size_t elemCount
 #endif
 }
 
+/* Tolerant read: short game-data files (older .INT) are zero-filled instead
+ * of fataling. Used only by the cockpit .INT loader. */
+size_t FeDiskIo_ReadTolerant(void* dst, size_t elemSize, size_t elemCount, XvtFile* stream) {
+#ifdef XVT_MODERN
+	size_t count;
+	count = File_RawRead(dst, elemSize, elemCount, stream);
+	if (count < elemCount) {
+		memset((uint8_t*)dst + elemSize * count, 0, elemSize * (elemCount - count));
+	}
+	return count;
+#else
+	(void)dst;
+	(void)elemSize;
+	(void)elemCount;
+	(void)stream;
+	return 0;
+#endif
+}
+
 // FUNCTION: XVT 0x49EB60
 void FeDiskIo_FatalError(FileErrorStringId errorCode) {
 #ifdef XVT_MODERN
+	Aeron_LogError("xvt.files", "DIAG4 FeDiskIo_FatalError code=%d lastPath='%s'",
+			       (int)errorCode, XvtStorage_LastPath());
 	(void)errorCode;
 	XvtStorage_Fatal("Required resource could not be loaded", 1);
 #else

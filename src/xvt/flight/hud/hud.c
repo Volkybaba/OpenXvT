@@ -115,6 +115,17 @@ const char* g_strWaypointNames[14] = { 0 };
 const char* g_strMeshComponentNames[33] = { 0 };
 // GLOBAL: XVT 0x9ED240
 uint8_t* g_hudPanelSpriteDataByIndex[265] = { 0 };
+
+/* volkyxvt v43: .INT layout selector values come from the (possibly
+   short/corrupt) cockpit file; an out-of-range selector must not read a
+   garbage pointer past this 265-entry array. Return NULL so the blit
+   skips the sprite (its NULL guard already handles that). */
+static uint8_t* Hud_PanelSpriteDataByIndex(uint16_t index) {
+	if (index >= (uint16_t)(sizeof(g_hudPanelSpriteDataByIndex) /
+					   sizeof(g_hudPanelSpriteDataByIndex[0])))
+		return NULL;
+	return g_hudPanelSpriteDataByIndex[index];
+}
 // GLOBAL: XVT 0xA082A0
 uint8_t* g_hudPanelSpriteDataWriteCursor = NULL;
 // GLOBAL: XVT 0xA08CA0
@@ -2953,7 +2964,7 @@ void Hud_DrawReticle3D(void) {
 						uint16_t spriteState =
 							segment < chargedSegmentCount ? chargedSegmentState : emptySegmentState;
 
-						g_flightBlitSpriteFn(g_hudPanelSpriteDataByIndex[selector + spriteState],
+						g_flightBlitSpriteFn(Hud_PanelSpriteDataByIndex((uint16_t)(selector + spriteState)),
 											 x + xStep * segment, y, 253, reverseDirection);
 					}
 				}
@@ -3609,8 +3620,8 @@ void Hud_DrawBeamStrength2D(void) {
 
 		beamStrength -= 1000;
 		g_flightBlitSpriteFadedFn(
-			g_hudPanelSpriteDataByIndex[g_hudElementLayouts[g_hudInstrumentSetBaseIndex + 51].selector +
-										segmentIndex],
+			Hud_PanelSpriteDataByIndex((uint16_t)(g_hudElementLayouts[g_hudInstrumentSetBaseIndex + 51].selector +
+										segmentIndex)),
 			x, y, g_hudElementLayouts[g_hudInstrumentSetBaseIndex + 51].colorIndex, (int8_t)fade,
 			g_hudBeamSegmentFadeByChargeStep[0] == fade
 				? 0
@@ -3853,7 +3864,7 @@ void Hud_DrawCachedSegmentedBar(uint16_t filledCount, uint16_t elementIdx, uint1
 
 	do {
 		spriteOffset = segmentIndex < filledCount;
-		g_flightBlitSpriteFn(g_hudPanelSpriteDataByIndex[selector + spriteOffset], x, y, 253, 0);
+		g_flightBlitSpriteFn(Hud_PanelSpriteDataByIndex((uint16_t)(selector + spriteOffset)), x, y, 253, 0);
 		y = (uint16_t)(y - yStep);
 		++segmentIndex;
 	} while (segmentIndex < segmentCount);
@@ -5020,7 +5031,7 @@ void Hud_DrawCachedSpriteElement(unsigned int elementIdx, unsigned int state) {
 	if ((uint16_t)g_hudElementStateCache[elementIdx] != state) {
 		g_hudElementStateCache[elementIdx] = (int16_t)state;
 		g_flightBlitSpriteFn(
-			g_hudPanelSpriteDataByIndex[(uint16_t)g_hudElementLayouts[elementIdx].selector + state],
+			Hud_PanelSpriteDataByIndex((uint16_t)((uint16_t)g_hudElementLayouts[elementIdx].selector + state)),
 			g_hudElementLayouts[elementIdx].x, g_hudElementLayouts[elementIdx].y,
 			g_hudElementLayouts[elementIdx].colorIndex, 0);
 	}
@@ -5030,7 +5041,7 @@ void Hud_DrawCachedSpriteElement(unsigned int elementIdx, unsigned int state) {
 void Hud_DrawCachedFadedSpriteElement(uint16_t elementIdx, int16_t state, int16_t fade) {
 	if (g_hudElementStateCache[elementIdx] != state) {
 		g_hudElementStateCache[elementIdx] = state;
-		g_flightBlitSpriteFadedFn(g_hudPanelSpriteDataByIndex[g_hudElementLayouts[elementIdx].selector],
+		g_flightBlitSpriteFadedFn(Hud_PanelSpriteDataByIndex((uint16_t)g_hudElementLayouts[elementIdx].selector),
 								  g_hudElementLayouts[elementIdx].x, g_hudElementLayouts[elementIdx].y,
 								  g_hudElementLayouts[elementIdx].colorIndex, (int8_t)state, fade);
 	}
@@ -5106,20 +5117,20 @@ void Hud_LoadCockpitInterfaceFile(const char* basePath) {
 	strcat(g_hudCockpitResourcePath, ".INT");
 	File_OpenGlobalStream(g_hudCockpitResourcePath, "rb", 1, 0);
 	stream = g_stream;
-	FeDiskIo_ReadWithRetryPrompt(g_hudCockpitResourceDescriptors, sizeof(HudCockpitResourceDescriptor), 28,
+	FeDiskIo_ReadTolerant(g_hudCockpitResourceDescriptors, sizeof(HudCockpitResourceDescriptor), 28,
 								 stream);
-	FeDiskIo_ReadWithRetryPrompt(g_hudElementLayouts, sizeof(HudElementLayout),
+	FeDiskIo_ReadTolerant(g_hudElementLayouts, sizeof(HudElementLayout),
 								 HUD_CRAFT_LIST_INSTRUMENT_BASE_INDEX, stream);
-	FeDiskIo_ReadWithRetryPrompt(&g_hudPanelSpriteFileInfo, sizeof(HudPanelSpriteFileInfo), 1, stream);
+	FeDiskIo_ReadTolerant(&g_hudPanelSpriteFileInfo, sizeof(HudPanelSpriteFileInfo), 1, stream);
 	if (g_flightResolutionMode == FLIGHT_RESOLUTION_640X480) {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask0, 480, 1, stream);
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask1, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask0, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask1, 480, 1, stream);
 	} else if (g_flightResolutionMode == FLIGHT_RESOLUTION_480X360) {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask0, 480, 1, stream);
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask1, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask0, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask1, 480, 1, stream);
 	} else {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask0, 200, 1, stream);
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask1, 200, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask0, 200, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask1, 200, 1, stream);
 	}
 	FeDiskIo_CloseGlobalStream(0);
 #ifdef XVT_MODERN
@@ -5136,14 +5147,14 @@ int16_t Hud_LoadAuxiliaryCockpitInterfaceFile(void) {
 	strcat(g_hudCockpitResourcePath, ".INT");
 	File_OpenGlobalStream(g_hudCockpitResourcePath, "rb", 1, 0);
 	stream = g_stream;
-	FeDiskIo_ReadWithRetryPrompt(&g_hudElementLayouts[HUD_CRAFT_LIST_INSTRUMENT_BASE_INDEX],
+	FeDiskIo_ReadTolerant(&g_hudElementLayouts[HUD_CRAFT_LIST_INSTRUMENT_BASE_INDEX],
 								 sizeof(HudElementLayout), HUD_INSTRUMENTS_PER_SET, stream);
 	if (g_flightResolutionMode == FLIGHT_RESOLUTION_640X480) {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask2, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask2, 480, 1, stream);
 	} else if (g_flightResolutionMode == FLIGHT_RESOLUTION_480X360) {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask2, 480, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask2, 480, 1, stream);
 	} else {
-		FeDiskIo_ReadWithRetryPrompt(g_hudViewportSpanMask2, 200, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudViewportSpanMask2, 200, 1, stream);
 	}
 #ifdef XVT_MODERN
 	XvtRenderAssets_CaptureCockpit(1);
@@ -5400,7 +5411,7 @@ void Hud_LoadCockpitLfdEntries(const char* lfdName, uint8_t** outEntries, unsign
 		outputEntry = &outEntries[entryIndex];
 		*outputEntry = g_hudCockpitResourceWriteCursor;
 		isPalette = 1;
-		FeDiskIo_ReadWithRetryPrompt(&header, sizeof(header), 1, stream);
+		FeDiskIo_ReadTolerant(&header, sizeof(header), 1, stream);
 		paletteTagIndex = 0;
 		while (paletteTagIndex < 4) {
 			if (g_lfdPaletteResourceTypeTag[paletteTagIndex] != header.resourceType[paletteTagIndex]) {
@@ -5409,7 +5420,7 @@ void Hud_LoadCockpitLfdEntries(const char* lfdName, uint8_t** outEntries, unsign
 			++paletteTagIndex;
 		}
 		dataSize = header.dataSize;
-		FeDiskIo_ReadWithRetryPrompt(g_hudCockpitResourceWriteCursor, dataSize, 1, stream);
+		FeDiskIo_ReadTolerant(g_hudCockpitResourceWriteCursor, dataSize, 1, stream);
 		if (isPalette == 0) {
 			g_hudCockpitResourceWriteCursor += dataSize;
 		} else {
@@ -7060,12 +7071,22 @@ int16_t Hud_LoadPanelSpriteRecords(const char* fileName, uint16_t firstSpriteInd
 	int16_t byteValue;
 	XvtFile* stream;
 
-	File_OpenGlobalStream(fileName, "rb", 1, 0);
+	File_OpenGlobalStream(fileName, "rb", 0, 0);
 	remainingSprites = spriteCount;
 	stream = g_stream;
 #ifdef XVT_MODERN
-	if (!stream)
+	if (!stream) {
+		/* Missing .PNL (old .INT gave a bad baseName): point the requested
+		 * sprite slots at an empty RLE so the HUD never dereferences NULL. */
+		static uint8_t emptyRle[1] = { 0xff };
+		int16_t fillIndex;
+		for (fillIndex = 0; fillIndex < spriteCount; ++fillIndex) {
+			uint16_t slot = (uint16_t)(firstSpriteIndex + fillIndex);
+			if (slot < (uint16_t)(sizeof(g_hudPanelSpriteDataByIndex) / sizeof(g_hudPanelSpriteDataByIndex[0])))
+				g_hudPanelSpriteDataByIndex[slot] = emptyRle;
+		}
 		return 1;
+	}
 #endif
 	recordIndex = 0;
 	while (remainingSprites != 0) {

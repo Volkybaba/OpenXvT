@@ -15,6 +15,7 @@
 #include "xvt/frontend/credits.h"
 #include "xvt/frontend/front_image.h"
 #include "xvt/frontend/frontend.h"
+#include "xvt/input/keyboard.h"
 #include "xvt/frontend/frontend_button.h"
 #include "xvt/frontend/frontend_cursor.h"
 #include "xvt/frontend/frontend_dialog.h"
@@ -186,6 +187,7 @@ int Config_OptionsDatapadUpdate(int frameState) {
 	int joystickEntryIndex;
 	int animationFrame;
 	int dismissRequested;
+	int escDismiss;
 	RECT rect;
 
 	if (frameState == 0) {
@@ -275,6 +277,13 @@ int Config_OptionsDatapadUpdate(int frameState) {
 	if (XvtDialog_IsActive())
 		return 0;
 #endif
+	/* v10: ESC (Select) = back to concourse. The Done button sprite is invisible on this
+	   device and text labels do not render here, so ESC is the reliable way back. */
+	escDismiss = 0;
+	if (Keyboard_PeekChar() == 27) {
+		Keyboard_DiscardChar();
+		escDismiss = 1;
+	}
 	if (Frontend_HandleCommonScreenControls(CONFIG_SCREEN_CONTEXT) == 1) {
 		return 1;
 	}
@@ -290,6 +299,10 @@ int Config_OptionsDatapadUpdate(int frameState) {
 	FrontendButton_SetOverlayText(FrontendString_Get(FRONTSTR_206_DONE));
 	dismissRequested = FrontendButton_DrawSpriteHitTest(
 		&rect, "leaveup", "leavedown", FrontendString_Get(FRONTSTR_206_DONE), 12, 0, 8, "buttonsound");
+	dismissRequested |= escDismiss;
+	/* v9: "leaveup" sprite is invisible on this device; draw GERI with the datapad's own label call
+	   (DrawAlignedInRect + FONT_LABEL + g_colorLightBlue) so it renders exactly like the visible labels. */
+	FrontendText_DrawAlignedInRect(12, "GERI", &rect, 1, 1, g_colorLightBlue);
 	FrontendButton_DisableOverlayText();
 	dismissRequested |= FrontendDialog_HasNetworkDismissPacket();
 	if (g_frontendMissionSessionMode == FRONTEND_MISSION_SESSION_NET_HOST) {

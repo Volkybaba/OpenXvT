@@ -237,12 +237,12 @@ static int RenderOne(AeronCommandBuffer* cmd, const XvtRenderSnapshot* s, const 
 		return 1;
 	XvtLayoutTransform layout;
 	if (!XvtRenderMath_Layout(p->camera.screen_width, p->camera.screen_height, (float)tw, (float)th, &layout))
-		return 0;
+		return crt ? 1 : 0; /* CRT: skip this frame, don't kill the flight. */
 	float scale = fminf((float)tw / p->camera.screen_width, (float)th / p->camera.screen_height);
 	int width = crt ? (int)ceilf(p->destination.width * scale) : PREVIEW_WIDTH;
 	int height = crt ? (int)ceilf(p->destination.height * scale) : PREVIEW_HEIGHT;
 	if (!Ensure(slot, width, height))
-		return 0;
+		return crt ? 1 : 0; /* CRT: skip this frame, don't kill the flight. */
 	AeronScene3D* scene = crt ? g_crtScene : g_scene;
 	AeronSceneCamera camera = { 0 };
 	AeronSceneMeshInstance instance = { .mesh = mesh ? mesh->mesh : NULL,
@@ -258,7 +258,7 @@ static int RenderOne(AeronCommandBuffer* cmd, const XvtRenderSnapshot* s, const 
 		XvtRenderView view;
 		if (!XvtRenderMath_BuildView(&p->camera, p->camera.world_pos, p->destination.width,
 									 p->destination.height, &view))
-			return 0;
+			return 1; /* CRT: skip this frame, don't kill the flight. */
 		camera = view.camera;
 		camera.viewport = (AeronRectI) { 0, 0, width, height };
 		XvtRenderMath_ObjectMatrix(object, p->camera.world_pos, instance.transform);
